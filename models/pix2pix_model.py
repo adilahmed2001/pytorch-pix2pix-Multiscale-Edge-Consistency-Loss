@@ -1,7 +1,7 @@
 import torch
 from .base_model import BaseModel
 from . import networks
-
+from .edge_loss import sobel_edge_mae
 
 class Pix2PixModel(BaseModel):
     """This class implements the pix2pix model, for learning a mapping from input images to output images given paired data.
@@ -34,7 +34,7 @@ class Pix2PixModel(BaseModel):
         if is_train:
             parser.set_defaults(pool_size=0, gan_mode="vanilla")
             parser.add_argument("--lambda_L1", type=float, default=100.0, help="weight for L1 loss")
-
+            parser.add_argument('--lambda_edge', type=float, default=0.0)
         return parser
 
     def __init__(self, opt):
@@ -45,7 +45,7 @@ class Pix2PixModel(BaseModel):
         """
         BaseModel.__init__(self, opt)
         # specify the training losses you want to print out. The training/test scripts will call <BaseModel.get_current_losses>
-        self.loss_names = ["G_GAN", "G_L1", "D_real", "D_fake"]
+        self.loss_names = ["G_GAN", "G_L1", "D_real", "D_fake", "G_edge"]
         # specify the images you want to save/display. The training/test scripts will call <BaseModel.get_current_visuals>
         self.visual_names = ["real_A", "fake_B", "real_B"]
         # specify the models you want to save to the disk. The training/test scripts will call <BaseModel.save_networks> and <BaseModel.load_networks>
@@ -109,8 +109,16 @@ class Pix2PixModel(BaseModel):
         self.loss_G_GAN = self.criterionGAN(pred_fake, True)
         # Second, G(A) = B
         self.loss_G_L1 = self.criterionL1(self.fake_B, self.real_B) * self.opt.lambda_L1
-        # combine loss and calculate gradients
-        self.loss_G = self.loss_G_GAN + self.loss_G_L1
+
+        if self.opt.lambda_edge > 0.0:
+            self.loss_G_edge = sobel_edge_mae(self.fake_B, self.real_B) * self.opt.lambda_edge
+        else:
+            self.loss_G_edge = self.fake_B.new_zeros(())
+
+        # combine all the gradients
+        
+        self.loss_G = self.loss_G_GAN + self.loss_G_L1 + self.loss_G_edge
+       
         self.loss_G.backward()
 
     def optimize_parameters(self):
