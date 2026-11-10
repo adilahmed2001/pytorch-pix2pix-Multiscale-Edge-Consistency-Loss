@@ -108,13 +108,15 @@ class Pix2PixModel(BaseModel):
         pred_fake = self.netD(fake_AB)
         self.loss_G_GAN = self.criterionGAN(pred_fake, True)
         # Second, G(A) = B
-        self.loss_G_L1 = self.criterionL1(self.fake_B, self.real_B) * self.opt.lambda_L1
+        #self.loss_G_L1 = self.criterionL1(self.fake_B, self.real_B) * self.opt.lambda_L1
+
+        self.loss_G_L1 = 0
 
         self.loss_G_edge = (multiscale_sobel_edge_mae(self.fake_B, self.real_B) * self.opt.lambda_edge)
 
         # combine all the gradients
         
-        self.loss_G = self.loss_G_GAN + self.loss_G_L1 + self.loss_G_edge
+        self.loss_G = self.loss_G_GAN + self.loss_G_edge
        
         self.loss_G.backward()
 
