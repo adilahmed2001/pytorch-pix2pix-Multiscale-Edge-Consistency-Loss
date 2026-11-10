@@ -1,7 +1,7 @@
 import torch
 from .base_model import BaseModel
 from . import networks
-from .edge_loss import sobel_edge_mae
+from .multiscale_edge_loss import multiscale_sobel_edge_mae
 
 class Pix2PixModel(BaseModel):
     """This class implements the pix2pix model, for learning a mapping from input images to output images given paired data.
@@ -34,7 +34,7 @@ class Pix2PixModel(BaseModel):
         if is_train:
             parser.set_defaults(pool_size=0, gan_mode="vanilla")
             parser.add_argument("--lambda_L1", type=float, default=100.0, help="weight for L1 loss")
-            parser.add_argument('--lambda_edge', type=float, default=0.0)
+            parser.add_argument("--lambda_edge",type=float,default=25.0,help="weight for multi-scale Sobel edge loss")
         return parser
 
     def __init__(self, opt):
@@ -110,10 +110,7 @@ class Pix2PixModel(BaseModel):
         # Second, G(A) = B
         self.loss_G_L1 = self.criterionL1(self.fake_B, self.real_B) * self.opt.lambda_L1
 
-        if self.opt.lambda_edge > 0.0:
-            self.loss_G_edge = sobel_edge_mae(self.fake_B, self.real_B) * self.opt.lambda_edge
-        else:
-            self.loss_G_edge = self.fake_B.new_zeros(())
+        self.loss_G_edge = (multiscale_sobel_edge_mae(self.fake_B, self.real_B) * self.opt.lambda_edge)
 
         # combine all the gradients
         
